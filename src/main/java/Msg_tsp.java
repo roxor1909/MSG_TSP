@@ -1,3 +1,4 @@
+import com.opencsv.CSVWriter;
 import com.opencsv.bean.ColumnPositionMappingStrategy;
 import com.opencsv.bean.CsvToBean;
 import com.opencsv.bean.CsvToBeanBuilder;
@@ -23,12 +24,12 @@ import org.json.JSONObject;
 
 public class Msg_tsp {
 
-    private String filePath;
-    private String DISTANCE_FILE ="distances.csv";
-    private String OSRM_LINK = "http://localhost:5000/";
+    private final String FILE_PATH;
+    private final String DISTANCE_FILE ="src/main/resources/distances.csv";
+    private final String OSRM_LINK = "http://localhost:5000/";
 
     Msg_tsp(String filePath) {
-        this.filePath = filePath;
+        this.FILE_PATH = filePath;
     }
 
     void solveTsp(boolean recalculateDistances) {
@@ -63,6 +64,7 @@ public class Msg_tsp {
                         HttpResponse response = httpClient.execute(request);
                         JSONObject result = new JSONObject(new String(response.getEntity().getContent().readAllBytes()));
                         double dist = result.getJSONArray("routes").getJSONObject(0).getDouble("distance");
+                        // Assume that on the way from msg hq i to hq j is no one way street. Therefore, use the same distance for the way back. 
                         distanceMatrix[i][j] = dist;
                         distanceMatrix[j][i] = dist;
                     } else {
@@ -71,6 +73,7 @@ public class Msg_tsp {
                 }
             }
             System.out.println(Arrays.deepToString(distanceMatrix));
+            saveDistanceMatrix(distanceMatrix);
         } catch (IOException iox) {
             System.err.println("IOException occured");
             System.err.println(Arrays.toString(iox.getStackTrace()));
@@ -83,7 +86,7 @@ public class Msg_tsp {
     List<MsgHeadquarter> loadHQ() throws IOException{
         ColumnPositionMappingStrategy<MsgHeadquarter> ms = new ColumnPositionMappingStrategy<>();
         ms.setType(MsgHeadquarter.class);
-        BufferedReader reader = new BufferedReader(new FileReader(this.filePath));
+        BufferedReader reader = new BufferedReader(new FileReader(this.FILE_PATH));
         CsvToBean<MsgHeadquarter> cb = new CsvToBeanBuilder<MsgHeadquarter>(reader)
                 // Skip Header
                 .withSkipLines(1)
@@ -92,5 +95,18 @@ public class Msg_tsp {
 
         List<MsgHeadquarter> list = cb.parse();
         return Objects.requireNonNullElseGet(list, ArrayList::new);
+    }
+
+    private void saveDistanceMatrix(double[][] matrix) throws IOException{
+        CSVWriter csvWriter = new CSVWriter(new FileWriter(this.DISTANCE_FILE));
+        for(double[] arr: matrix) {
+            String stringArr = Arrays.toString(arr);
+            // Remove the [ and ] of the stringArr
+            String[] stringDist = stringArr.substring(1, stringArr.length()-1).split("\\s*,\\s*");
+            System.out.println("-----------");
+            System.out.println(Arrays.toString(stringDist));
+            csvWriter.writeNext(stringDist);
+        }
+        csvWriter.close();
     }
 }
