@@ -3,12 +3,21 @@ import com.opencsv.bean.CsvToBean;
 import com.opencsv.bean.CsvToBeanBuilder;
 
 import java.io.*;
-import java.net.URL;
-import java.nio.file.FileSystems;
-import java.nio.file.Files;
-import java.nio.file.Path;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
+
+import org.apache.http.HttpResponse;
+import org.apache.http.client.HttpClient;
+import org.apache.http.client.methods.HttpGet;
+import org.apache.http.impl.client.HttpClients;
+import org.apache.http.client.utils.URIBuilder;
+
+
+import org.json.JSONObject;
 
 
 
@@ -16,11 +25,10 @@ public class Msg_tsp {
 
     private String filePath;
     private String DISTANCE_FILE ="distances.csv";
-    private String OSRM_LINK = "localhost:5000/";
+    private String OSRM_LINK = "http://localhost:5000/";
 
     Msg_tsp(String filePath) {
         this.filePath = filePath;
-        this.file = new File(this.filePath);
     }
 
     void solveTsp(boolean recalculateDistances) {
@@ -36,27 +44,44 @@ public class Msg_tsp {
         try{
             List<MsgHeadquarter> hqs = loadHQ();
             double[][] distanceMatrix = new double[hqs.size()][hqs.size()];
-            for(int i = 0; i <= hqs.size(); i++) {
+            for(int i = 0; i < hqs.size(); i++) {
                 for(int j = 0; j <=i; j++) {
                     // The distance between the same points is 0.0
                     if(i != j) {
                         MsgHeadquarter hqOne = hqs.get(i);
                         MsgHeadquarter hqTwo = hqs.get(j);
-                        // Service is using Longitude, latitude
-                        String coordinates =
-                        URL url = new URL(this.OSRM_LINK + "route/v1/driving/")
+                        // Service is using Longitude, latitude to describe a coordinate
+                        String coordinates = hqOne.getLongitude() + "," +hqOne.getLatitude() + ";" + hqTwo.getLongitude() + "," + hqTwo.getLatitude();
+                        String url = this.OSRM_LINK + "route/v1/driving/" + coordinates;
 
+                        HttpClient httpClient = HttpClients.createDefault();
+
+                        URIBuilder builder = new URIBuilder(url);
+                        URI uri = builder.build();
+                        HttpGet request = new HttpGet(uri);
+                        request.addHeader("accept", "application/json");
+                        HttpResponse response = httpClient.execute(request);
+                        JSONObject result = new JSONObject(new String(response.getEntity().getContent().readAllBytes()));
+                        double dist = result.getJSONArray("routes").getJSONObject(0).getDouble("distance");
+                        distanceMatrix[i][j] = dist;
+                        distanceMatrix[j][i] = dist;
+                    } else {
+                        distanceMatrix[i][j] = 0.0;
                     }
                 }
             }
+            System.out.println(Arrays.deepToString(distanceMatrix));
         } catch (IOException iox) {
-            System.out.println("IOException occured");
-            System.out.println(iox.fillInStackTrace());
+            System.err.println("IOException occured");
+            System.err.println(Arrays.toString(iox.getStackTrace()));
+        } catch(URISyntaxException uriSyntaxException) {
+            System.err.println("URISyntaxException occured");
+            System.err.println(Arrays.toString(uriSyntaxException.getStackTrace()));
         }
     }
 
     List<MsgHeadquarter> loadHQ() throws IOException{
-        ColumnPositionMappingStrategy<MsgHeadquarter> ms = new ColumnPositionMappingStrategy<MsgHeadquarter>();
+        ColumnPositionMappingStrategy<MsgHeadquarter> ms = new ColumnPositionMappingStrategy<>();
         ms.setType(MsgHeadquarter.class);
         BufferedReader reader = new BufferedReader(new FileReader(this.filePath));
         CsvToBean<MsgHeadquarter> cb = new CsvToBeanBuilder<MsgHeadquarter>(reader)
@@ -66,11 +91,6 @@ public class Msg_tsp {
                 .build();
 
         List<MsgHeadquarter> list = cb.parse();
-        if(list != null) {
-            return  list;
-        } else {
-            return new ArrayList<MsgHeadquarter>();
-        }
+        return Objects.requireNonNullElseGet(list, ArrayList::new);
     }
-
 }
