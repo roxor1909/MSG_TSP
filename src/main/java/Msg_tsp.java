@@ -44,7 +44,7 @@ public class Msg_tsp {
     void recalculateDistances() {
         try{
             List<MsgHeadquarter> hqs = loadHQ();
-            double[][] distanceMatrix = new double[hqs.size()][hqs.size()];
+            String[][] distanceMatrix = new String[hqs.size()][hqs.size()];
             for(int i = 0; i < hqs.size(); i++) {
                 for(int j = 0; j <=i; j++) {
                     // The distance between the same points is 0.0
@@ -63,16 +63,15 @@ public class Msg_tsp {
                         request.addHeader("accept", "application/json");
                         HttpResponse response = httpClient.execute(request);
                         JSONObject result = new JSONObject(new String(response.getEntity().getContent().readAllBytes()));
-                        double dist = result.getJSONArray("routes").getJSONObject(0).getDouble("distance");
+                        String dist = " " + result.getJSONArray("routes").getJSONObject(0).getDouble("distance");
                         // Assume that on the way from msg hq i to hq j is no one way street. Therefore, use the same distance for the way back. 
                         distanceMatrix[i][j] = dist;
                         distanceMatrix[j][i] = dist;
                     } else {
-                        distanceMatrix[i][j] = 0.0;
+                        distanceMatrix[i][j] = " 0.0";
                     }
                 }
             }
-            System.out.println(Arrays.deepToString(distanceMatrix));
             saveDistanceMatrix(distanceMatrix);
         } catch (IOException iox) {
             System.err.println("IOException occured");
@@ -97,15 +96,16 @@ public class Msg_tsp {
         return Objects.requireNonNullElseGet(list, ArrayList::new);
     }
 
-    private void saveDistanceMatrix(double[][] matrix) throws IOException{
-        CSVWriter csvWriter = new CSVWriter(new FileWriter(this.DISTANCE_FILE));
-        for(double[] arr: matrix) {
-            String stringArr = Arrays.toString(arr);
-            // Remove the [ and ] of the stringArr
-            String[] stringDist = stringArr.substring(1, stringArr.length()-1).split("\\s*,\\s*");
-            System.out.println("-----------");
-            System.out.println(Arrays.toString(stringDist));
-            csvWriter.writeNext(stringDist);
+    private void saveDistanceMatrix(String[][] matrix) throws IOException{
+        CSVWriter csvWriter = new CSVWriter(new FileWriter(this.DISTANCE_FILE), CSVWriter.DEFAULT_SEPARATOR, CSVWriter.NO_QUOTE_CHARACTER, CSVWriter.DEFAULT_ESCAPE_CHARACTER,"\n");
+        String[] header = new String[matrix.length];
+        // Create header for file
+        for(int index =0; index < matrix.length; index ++) {
+            header[index] = (index + 1 ) +"";
+        }
+        csvWriter.writeNext(header);
+        for(String[] arr: matrix) {
+            csvWriter.writeNext(arr, false);
         }
         csvWriter.close();
     }
