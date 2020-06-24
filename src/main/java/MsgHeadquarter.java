@@ -25,4 +25,6 @@ public class MsgHeadquarter {
     public double getLongitude() {
         return longitude;
     }
+
+    public String getName() {return name; }
 }
