@@ -122,6 +122,37 @@ public class Msg_tsp {
 
         }
         System.out.println(selectedList);
+        List<Integer>[] adj = this.createGraph(selectedList, distances.length);
+        List<Integer> route = new LinkedList<>();
+        // Start is in Ismaringen
+        route.add(0);
+        boolean[] visited = new boolean[distances.length];
+        visited[0] = true;
+        int index = 0;
+        for(List<Integer> tmp: adj) {
+            System.out.print((hqs.get(index).getNumber()-1) +  " " + hqs.get(index++).getName());
+            System.out.println(tmp);
+        }
+
+        int next = adj[0].get(0);
+        int count = 1;
+        while(count < distances.length) {
+            route.add(next);
+            visited[next] = true;
+            int nextZero = adj[next].get(0);
+            System.out.println("Next zero:" + nextZero);
+            if(!visited[nextZero]){
+                next = adj[next].get(0);
+            }else {
+                next = adj[next].get(1);
+            }
+            count++;
+        }
+        // Go back home
+        route.add(0);
+        System.out.println(route);
+        double length = this.calculateDistanceOfRoute(distances, route);
+        this.drawMap("greedy2.png", route, "greedy", length);
         this.drawSingleRoutes("greedy.png", selectedList);
 
     }
@@ -138,10 +169,19 @@ public class Msg_tsp {
         return result;
     }
 
-    boolean isCyclic(int numberVertix, List<Node> nodes) {
-        if(nodes.size() == 1) {
-            return false;
+    private List<Integer>[] createGraph(List<Node> nodes, int numberVertix) {
+        LinkedList<Integer>[] adj = new LinkedList[numberVertix];
+        for(int i =0; i<numberVertix; i++) {
+            adj[i] = new LinkedList<>();
         }
+        for(Node node : nodes) {
+            adj[node.getTo()].add(node.getFrom());
+            adj[node.getFrom()].add(node.getTo());
+        }
+        return adj;
+    }
+
+    boolean isCyclic(int numberVertix, List<Node> nodes) {
          LinkedList<Integer>[] adj = new LinkedList[numberVertix];
          for(int i =0; i<numberVertix; i++) {
              adj[i] = new LinkedList<>();
@@ -201,6 +241,7 @@ public class Msg_tsp {
     private double calculateDistanceOfRoute(double[][] distances, List<Integer> route) {
         double distance = 0.0;
         for(int index = 1; index < route.size(); index++) {
+            System.out.println(distances[route.get(index-1)][route.get(index)]);
             distance += distances[route.get(index-1)][route.get(index)];
         }
         return  distance;
