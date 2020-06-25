@@ -2,7 +2,7 @@ import com.opencsv.bean.CsvBindByPosition;
 
 public class MsgHeadquarter {
     @CsvBindByPosition(position=0)
-    private int nummer;
+    private int number;
     @CsvBindByPosition(position=1)
     private String name;
     @CsvBindByPosition(position=2)

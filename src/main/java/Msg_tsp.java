@@ -4,10 +4,13 @@ import com.opencsv.bean.ColumnPositionMappingStrategy;
 import com.opencsv.bean.CsvToBean;
 import com.opencsv.bean.CsvToBeanBuilder;
 
+import java.awt.*;
+import java.awt.image.BufferedImage;
 import java.io.*;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.*;
+import java.util.List;
 
 import com.opencsv.exceptions.CsvException;
 import org.apache.http.HttpResponse;
@@ -20,6 +23,7 @@ import com.google.common.primitives.Booleans;
 
 import org.json.JSONObject;
 
+import javax.imageio.ImageIO;
 
 
 public class Msg_tsp {
@@ -27,18 +31,17 @@ public class Msg_tsp {
     private final String FILE_PATH;
     private final String DISTANCE_FILE ="src/main/resources/distances.csv";
     private final String OSRM_LINK = "http://localhost:5000/";
+    private List<MsgHeadquarter> hqs;
 
     Msg_tsp(String filePath) {
         this.FILE_PATH = filePath;
+        hqs = this.loadHQ();
     }
 
     void solveTsp(boolean recalculateDistances) {
         if(recalculateDistances) {
             this.recalculateDistances();
         }
-        // Solve TSP
-        // Service nutzt Längengrad;Breitengrad als Parameter
-        // "der dich auf dem kürzesten Weg zu jedem Standort der msg führt"
 
         double[][] distances = this.loadDistances();
         // Ismaning is the first row in the file
@@ -54,7 +57,7 @@ public class Msg_tsp {
         route.add(startIndex);
         cityVisited[startIndex] = true;
         int currentCity = startIndex;
-        System.out.println(Arrays.toString(cityVisited));
+        // Start the algorithm
         while(Booleans.asList(cityVisited).contains(false)) {
             currentCity = this.findNextUnvisitedCity(distances, currentCity, cityVisited);
             route.add(currentCity);
@@ -63,7 +66,8 @@ public class Msg_tsp {
         // Go back to the start city
         route.add(startIndex);
         System.out.println(this.describeRoute(route));
-        System.out.println(this.calculateDistanceOfRoute(distances, route) + " meters");
+        double length = this.calculateDistanceOfRoute(distances, route);
+        this.drawMap("NearestNeighbour.png", route, "Nearest neighbour", length);
     }
 
 
@@ -95,26 +99,20 @@ public class Msg_tsp {
 
     private String describeRoute(List<Integer> route) {
         StringBuilder cities = new StringBuilder();
-        try{
-            List<MsgHeadquarter> hqs = this.loadHQ();
-            for(int cityIndex : route) {
-                cities.append(hqs.get(cityIndex).getName());
-                cities.append(" -> ");
-            }
 
-        }catch(IOException ioException) {
-            System.err.println(Arrays.toString(ioException.getStackTrace()));
+        for(int cityIndex : route) {
+            cities.append(hqs.get(cityIndex).getName());
+            cities.append(" -> ");
         }
+
         return cities.toString();
     }
 
     void recalculateDistances() {
         try{
-            List<MsgHeadquarter> hqs = loadHQ();
             String[][] distanceMatrix = new String[hqs.size()][hqs.size()];
             for(int i = 0; i < hqs.size(); i++) {
                 for(int j = 0; j <=i; j++) {
-                    // The distance between the same points is 0.0
                     if(i != j) {
                         MsgHeadquarter hqOne = hqs.get(i);
                         MsgHeadquarter hqTwo = hqs.get(j);
@@ -123,7 +121,6 @@ public class Msg_tsp {
                         String url = this.OSRM_LINK + "route/v1/driving/" + coordinates;
 
                         HttpClient httpClient = HttpClients.createDefault();
-
                         URIBuilder builder = new URIBuilder(url);
                         URI uri = builder.build();
                         HttpGet request = new HttpGet(uri);
@@ -135,32 +132,39 @@ public class Msg_tsp {
                         distanceMatrix[i][j] = dist;
                         distanceMatrix[j][i] = dist;
                     } else {
+                        // The distance between the same points is 0.0
                         distanceMatrix[i][j] = "0.0";
                     }
                 }
             }
             saveDistanceMatrix(distanceMatrix);
         } catch (IOException iox) {
-            System.err.println("IOException occured");
+            System.err.println("IOException occurred");
             System.err.println(Arrays.toString(iox.getStackTrace()));
         } catch(URISyntaxException uriSyntaxException) {
-            System.err.println("URISyntaxException occured");
+            System.err.println("URISyntaxException occurred");
             System.err.println(Arrays.toString(uriSyntaxException.getStackTrace()));
         }
     }
 
-    List<MsgHeadquarter> loadHQ() throws IOException{
+    List<MsgHeadquarter> loadHQ() {
         ColumnPositionMappingStrategy<MsgHeadquarter> ms = new ColumnPositionMappingStrategy<>();
         ms.setType(MsgHeadquarter.class);
-        BufferedReader reader = new BufferedReader(new FileReader(this.FILE_PATH));
-        CsvToBean<MsgHeadquarter> cb = new CsvToBeanBuilder<MsgHeadquarter>(reader)
-                // Skip Header
-                .withSkipLines(1)
-                .withMappingStrategy(ms)
-                .build();
+        try {
+            BufferedReader reader = new BufferedReader(new FileReader(this.FILE_PATH));
+            CsvToBean<MsgHeadquarter> cb = new CsvToBeanBuilder<MsgHeadquarter>(reader)
+                    // Skip Header
+                    .withSkipLines(1)
+                    .withMappingStrategy(ms)
+                    .build();
 
-        List<MsgHeadquarter> list = cb.parse();
-        return Objects.requireNonNullElseGet(list, ArrayList::new);
+            List<MsgHeadquarter> list = cb.parse();
+            return Objects.requireNonNullElseGet(list, ArrayList::new);
+        } catch (IOException e) {
+            System.err.println("Error during reading HQ File: ");
+            System.err.println(Arrays.toString(e.getStackTrace()));
+        }
+        return  null;
     }
 
     private void saveDistanceMatrix(String[][] matrix) throws IOException{
@@ -186,6 +190,50 @@ public class Msg_tsp {
         } catch (IOException | CsvException e) {
             System.err.println(Arrays.toString(e.getStackTrace()));
             return  null;
+        }
+    }
+
+    private void drawMap(String fileName, List<Integer> route, String algorithmName, double length) {
+        // Extracted from https://de.wikipedia.org/wiki/Liste_der_Extrempunkte_Deutschlands
+        // There are used to estimate the position of the cities on the map
+        double highestLatitudeOfGer = 54.91131;
+        double smallestLatitudeOfGer = 47.271679;
+        double diffLatitude = highestLatitudeOfGer - smallestLatitudeOfGer;
+        double highestLongitudeGer = 15.043611;
+        double smallestLongitudeGer = 5.866944;
+        double diffLongitude = highestLongitudeGer - smallestLongitudeGer;
+        double lastX = 0.0;
+        double lastY = 0.0;
+
+        try {
+            String mapUrl = "src/main/resources/Germany_location_map.png";
+            BufferedImage mapImage = ImageIO.read(new File(mapUrl));
+            int width = mapImage.getWidth();
+            int height = mapImage.getHeight();
+
+            BufferedImage newImage = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
+            Graphics g = newImage.getGraphics();
+            g.drawImage(mapImage,0,0,null);
+            g.setColor(Color.RED);
+            g.setFont(new Font("TimesRoman", Font.PLAIN, 15));
+            for(int hqIndex : route) {
+                double x = (hqs.get(hqIndex).getLongitude() -smallestLongitudeGer) * (width/diffLongitude);
+                double y = height - (hqs.get(hqIndex).getLatitude() - smallestLatitudeOfGer) * ( height / diffLatitude);
+                g.fillOval((int)(x-12.5),(int)(y-12.5),25, 25);
+                g.drawString(hqs.get(hqIndex).getName(),(int)x-40,(int)y-13);
+                if(lastX != 0.0 && lastY != 0.0) {
+                    g.drawLine((int)x,(int)y,(int)lastX, (int)lastY);
+                }
+                lastX = x;
+                lastY = y;
+            }
+            g.setFont(new Font("TimesRoman", Font.PLAIN, 20));
+            g.drawString(algorithmName, 50,50);
+            g.drawString("Total length: " + length + " meters", 50,100);
+
+            ImageIO.write(newImage, "png", new File("src/main/resources/" + fileName));
+        } catch (IOException ioException) {
+            System.err.println(Arrays.toString(ioException.getStackTrace()));
         }
     }
 }
