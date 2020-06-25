@@ -11,7 +11,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.*;
 import java.util.List;
-import java.util.stream.Stream;
+import java.util.stream.Collectors;
 
 import com.opencsv.exceptions.CsvException;
 import org.apache.http.HttpResponse;
@@ -48,6 +48,7 @@ public class Msg_tsp {
         // Ismaning is the first row in the file
         int indexOfStartHq = 0;
         nearestNeighbor(distances, indexOfStartHq);
+        drawMapWithNumbers();
         greedy(distances);
     }
 
@@ -92,34 +93,121 @@ public class Msg_tsp {
             }
         }
         List<Node> selectedList = new LinkedList<>();
+        /*
         Node firstNode = nodelist.poll();
         selectedList.add(firstNode);
         alreadySelectedEdge[firstNode.getFrom()][firstNode.getTo()] = true;
         alreadySelectedEdge[firstNode.getTo()][firstNode.getFrom()] = true;
 
+         */
+
         while(selectedList.size() < distances.length) {
             Node nextNode = nodelist.poll();
-            alreadySelectedEdge[nextNode.getFrom()][nextNode.getTo()] = true;
-            alreadySelectedEdge[nextNode.getTo()][nextNode.getFrom()] = true;
-            boolean[] neighboursTo = alreadySelectedEdge[nextNode.getTo()];
-            boolean[] neighboursFrom = alreadySelectedEdge[nextNode.getFrom()];
+            boolean[][] copiedSelected = deepCopy(alreadySelectedEdge);
+            copiedSelected[nextNode.getFrom()][nextNode.getTo()] = true;
+            copiedSelected[nextNode.getTo()][nextNode.getFrom()] = true;
+            boolean[] neighboursTo = copiedSelected[nextNode.getTo()];
+            boolean[] neighboursFrom = copiedSelected[nextNode.getFrom()];
             System.out.println("outer loop");
+            System.out.println(selectedList);
             System.out.println(selectedList.size());
+            System.out.println(distances.length);
+            System.out.println("Next Node outer" + nextNode);
+            List<Node> copiedSelectedList = new LinkedList<>(selectedList);
+            copiedSelectedList.add(nextNode);
             // Check conditions
             // It is four because in the matrix the distance from the node to his self is marked as selected
-            while(Booleans.asList(neighboursTo).stream().filter(b -> b).count() >= 4 || Booleans.asList(neighboursFrom).stream().filter(b -> b).count() >= 4){
+            while(Booleans.asList(neighboursTo).stream().filter(b -> b).count() > 3 || Booleans.asList(neighboursFrom).stream().filter(b -> b).count() > 3
+                || (isCyclic(distances.length, copiedSelectedList) && copiedSelectedList.size() < distances.length)){
                 nextNode = nodelist.poll();
-                //alreadySelectedEdge[nextNode.getFrom()][nextNode.getTo()] = true;
-                //alreadySelectedEdge[nextNode.getTo()][nextNode.getFrom()] = true;
-                neighboursTo = alreadySelectedEdge[nextNode.getTo()];
-                neighboursFrom = alreadySelectedEdge[nextNode.getFrom()];
+                copiedSelected = deepCopy(alreadySelectedEdge);
+                copiedSelected[nextNode.getFrom()][nextNode.getTo()] = true;
+                copiedSelected[nextNode.getTo()][nextNode.getFrom()] = true;
+                neighboursTo = copiedSelected[nextNode.getTo()];
+                neighboursFrom = copiedSelected[nextNode.getFrom()];
+                copiedSelectedList = new LinkedList<>(selectedList);
+                copiedSelectedList.add(nextNode);
+                if(nextNode.getFrom() == 1 && nextNode.getTo() == 2 && 1 == 2) {
+
+                    System.out.println("Next node inner: " + nextNode);
+                    for(boolean[] tmp : copiedSelected) {
+                        List<Boolean> tmpList = Booleans.asList(tmp);
+                        System.out.println(tmpList.stream().map( aBoolean -> aBoolean ? 1 : 0).collect(Collectors.toList()));
+                    }
+                    System.out.println(isCyclic(distances.length, copiedSelectedList));
+                    System.out.println(Arrays.toString(neighboursTo));
+                    System.out.println(Booleans.asList(neighboursTo).stream().filter(b -> b).count() > 3);
+                    System.out.println(Arrays.toString(neighboursFrom));
+                    System.out.println(Booleans.asList(neighboursFrom).stream().filter(b -> b).count() > 3);
+                }
             }
             selectedList.add(nextNode);
+            if((nextNode.getTo() == 2 && nextNode.getFrom() == 9) && (nextNode.getTo() == 9 && nextNode.getFrom() == 2)){
+                System.out.println("______________________CHANGE_________________");
+            }
+            if(alreadySelectedEdge[2][9] && alreadySelectedEdge[9][2]){
+                System.out.println("!!!!!!!!!!!!!!!!!!!!!!!!!modified!!!!!!!!!!!!!!!!!!!!!!!");
+                System.out.println("But selected node was: " + nextNode);
+            }
             alreadySelectedEdge[nextNode.getFrom()][nextNode.getTo()] = true;
             alreadySelectedEdge[nextNode.getTo()][nextNode.getFrom()] = true;
+
         }
         System.out.println(selectedList);
         this.drawSingleRoutes("greedy.png", selectedList);
+
+    }
+
+    boolean[][] deepCopy(boolean[][] original) {
+        if(original == null) {
+            return null;
+        }
+        boolean[][] result = new boolean[original.length][];
+        for(int index = 0; index < original.length; index++) {
+            result[index] = original[index].clone();
+        }
+        return result;
+    }
+
+    boolean isCyclic(int numberVertix, List<Node> nodes) {
+        if(nodes.size() == 1) {
+            return false;
+        }
+         LinkedList<Integer>[] adj = new LinkedList[numberVertix];
+         for(int i =0; i<numberVertix; i++) {
+             adj[i] = new LinkedList<>();
+         }
+         for(Node node : nodes) {
+             adj[node.getTo()].add(node.getFrom());
+             adj[node.getFrom()].add(node.getTo());
+         }
+
+         boolean[] visited = new boolean[numberVertix];
+         for (int i = 0; i < numberVertix; i++) {
+             if(!visited[i]) {
+                 if (isCyclicUtil(i, visited, -1, adj)) {
+                     return true;
+                 }
+             }
+         }
+         return false;
+    }
+
+    boolean isCyclicUtil(int v, boolean[] visited, int parent, LinkedList<Integer>[] adj) {
+        visited[v] = true;
+        int i;
+
+        for (Integer integer : adj[v]) {
+            i = integer;
+            if (!visited[i]) {
+                if (isCyclicUtil(i, visited, v, adj)) {
+                    return true;
+                }
+            } else if (i != parent) {
+                return true;
+            }
+        }
+        return  false;
     }
 
 
@@ -296,8 +384,6 @@ public class Msg_tsp {
         double highestLongitudeGer = 15.043611;
         double smallestLongitudeGer = 5.866944;
         double diffLongitude = highestLongitudeGer - smallestLongitudeGer;
-        double lastX = 0.0;
-        double lastY = 0.0;
 
         try {
             String mapUrl = "src/main/resources/Germany_location_map.png";
@@ -327,6 +413,47 @@ public class Msg_tsp {
             g.setFont(new Font("TimesRoman", Font.PLAIN, 20));
 
             ImageIO.write(newImage, "png", new File("src/main/resources/" + fileName));
+        } catch (IOException ioException) {
+            System.err.println(Arrays.toString(ioException.getStackTrace()));
+        }
+    }
+
+    private void drawMapWithNumbers() {
+        double highestLatitudeOfGer = 54.91131;
+        double smallestLatitudeOfGer = 47.271679;
+        double diffLatitude = highestLatitudeOfGer - smallestLatitudeOfGer;
+        double highestLongitudeGer = 15.043611;
+        double smallestLongitudeGer = 5.866944;
+        double diffLongitude = highestLongitudeGer - smallestLongitudeGer;
+
+        try {
+            String mapUrl = "src/main/resources/Germany_location_map.png";
+            BufferedImage mapImage = ImageIO.read(new File(mapUrl));
+            int width = mapImage.getWidth();
+            int height = mapImage.getHeight();
+
+            BufferedImage newImage = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
+            Graphics g = newImage.getGraphics();
+            g.drawImage(mapImage,0,0,null);
+            g.setColor(Color.RED);
+            g.setFont(new Font("TimesRoman", Font.PLAIN, 15));
+            for(MsgHeadquarter hq: hqs) {
+                double x = (hq.getLongitude() -smallestLongitudeGer) * (width/diffLongitude);
+                double y = height - (hq.getLatitude() - smallestLatitudeOfGer) * ( height / diffLatitude);
+                g.fillOval((int)(x-12.5),(int)(y-12.5),25, 25);
+                g.drawString((hq.getNumber()-1) +"",(int)x-40,(int)y-13);
+/*
+                double x2 = (hqs.get(node.getTo()).getLongitude() -smallestLongitudeGer) * (width/diffLongitude);
+                double y2 = height - (hqs.get(node.getTo()).getLatitude() - smallestLatitudeOfGer) * ( height / diffLatitude);
+                g.fillOval((int)(x2-12.5),(int)(y2-12.5),25, 25);
+                g.drawString(hqs.get(node.getTo()).getName(),(int)x2-40,(int)y2-13);
+
+                g.drawLine((int)x,(int)y,(int)x2, (int)y2);
+*/
+            }
+            g.setFont(new Font("TimesRoman", Font.PLAIN, 20));
+
+            ImageIO.write(newImage, "png", new File("src/main/resources/mapWithNumbers.png"));
         } catch (IOException ioException) {
             System.err.println(Arrays.toString(ioException.getStackTrace()));
         }
