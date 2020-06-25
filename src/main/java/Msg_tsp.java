@@ -32,7 +32,7 @@ public class Msg_tsp {
     private final String FILE_PATH;
     private final String DISTANCE_FILE ="src/main/resources/distances.csv";
     private final String OSRM_LINK = "http://localhost:5000/";
-    private List<MsgHeadquarter> hqs;
+    private final List<MsgHeadquarter> hqs;
 
     Msg_tsp(String filePath) {
         this.FILE_PATH = filePath;
@@ -48,7 +48,6 @@ public class Msg_tsp {
         // Ismaning is the first row in the file
         int indexOfStartHq = 0;
         nearestNeighbor(distances, indexOfStartHq);
-        drawMapWithNumbers();
         greedy(distances);
     }
 
@@ -74,9 +73,6 @@ public class Msg_tsp {
 
     void greedy(double[][] distances) {
         // Sort the edges in increasing order of the weights
-        // Choose the smallest one which
-        // 1. does not cause a vertex to have a degreed of three or more
-        // 2. does not form a cycle
         boolean[][] alreadySelectedEdge = new boolean[distances.length][distances.length];
         // mark the diagonal as used because it is the same node
         for(int i = 0; i < alreadySelectedEdge.length; i++) {
@@ -93,13 +89,6 @@ public class Msg_tsp {
             }
         }
         List<Node> selectedList = new LinkedList<>();
-        /*
-        Node firstNode = nodelist.poll();
-        selectedList.add(firstNode);
-        alreadySelectedEdge[firstNode.getFrom()][firstNode.getTo()] = true;
-        alreadySelectedEdge[firstNode.getTo()][firstNode.getFrom()] = true;
-
-         */
 
         while(selectedList.size() < distances.length) {
             Node nextNode = nodelist.poll();
@@ -108,15 +97,13 @@ public class Msg_tsp {
             copiedSelected[nextNode.getTo()][nextNode.getFrom()] = true;
             boolean[] neighboursTo = copiedSelected[nextNode.getTo()];
             boolean[] neighboursFrom = copiedSelected[nextNode.getFrom()];
-            System.out.println("outer loop");
-            System.out.println(selectedList);
-            System.out.println(selectedList.size());
-            System.out.println(distances.length);
-            System.out.println("Next Node outer" + nextNode);
+
             List<Node> copiedSelectedList = new LinkedList<>(selectedList);
             copiedSelectedList.add(nextNode);
             // Check conditions
-            // It is four because in the matrix the distance from the node to his self is marked as selected
+            // Choose the smallest edge which
+            // 1. does not cause a vertex to have a degree of three or more
+            // 2. does not form a cycle except the travel man visited all cities
             while(Booleans.asList(neighboursTo).stream().filter(b -> b).count() > 3 || Booleans.asList(neighboursFrom).stream().filter(b -> b).count() > 3
                 || (isCyclic(distances.length, copiedSelectedList) && copiedSelectedList.size() < distances.length)){
                 nextNode = nodelist.poll();
@@ -127,28 +114,9 @@ public class Msg_tsp {
                 neighboursFrom = copiedSelected[nextNode.getFrom()];
                 copiedSelectedList = new LinkedList<>(selectedList);
                 copiedSelectedList.add(nextNode);
-                if(nextNode.getFrom() == 1 && nextNode.getTo() == 2 && 1 == 2) {
-
-                    System.out.println("Next node inner: " + nextNode);
-                    for(boolean[] tmp : copiedSelected) {
-                        List<Boolean> tmpList = Booleans.asList(tmp);
-                        System.out.println(tmpList.stream().map( aBoolean -> aBoolean ? 1 : 0).collect(Collectors.toList()));
-                    }
-                    System.out.println(isCyclic(distances.length, copiedSelectedList));
-                    System.out.println(Arrays.toString(neighboursTo));
-                    System.out.println(Booleans.asList(neighboursTo).stream().filter(b -> b).count() > 3);
-                    System.out.println(Arrays.toString(neighboursFrom));
-                    System.out.println(Booleans.asList(neighboursFrom).stream().filter(b -> b).count() > 3);
-                }
             }
+            // Mark the edges of the selected node
             selectedList.add(nextNode);
-            if((nextNode.getTo() == 2 && nextNode.getFrom() == 9) && (nextNode.getTo() == 9 && nextNode.getFrom() == 2)){
-                System.out.println("______________________CHANGE_________________");
-            }
-            if(alreadySelectedEdge[2][9] && alreadySelectedEdge[9][2]){
-                System.out.println("!!!!!!!!!!!!!!!!!!!!!!!!!modified!!!!!!!!!!!!!!!!!!!!!!!");
-                System.out.println("But selected node was: " + nextNode);
-            }
             alreadySelectedEdge[nextNode.getFrom()][nextNode.getTo()] = true;
             alreadySelectedEdge[nextNode.getTo()][nextNode.getFrom()] = true;
 
@@ -158,6 +126,7 @@ public class Msg_tsp {
 
     }
 
+    // Copies a two dimensional array
     boolean[][] deepCopy(boolean[][] original) {
         if(original == null) {
             return null;
@@ -413,47 +382,6 @@ public class Msg_tsp {
             g.setFont(new Font("TimesRoman", Font.PLAIN, 20));
 
             ImageIO.write(newImage, "png", new File("src/main/resources/" + fileName));
-        } catch (IOException ioException) {
-            System.err.println(Arrays.toString(ioException.getStackTrace()));
-        }
-    }
-
-    private void drawMapWithNumbers() {
-        double highestLatitudeOfGer = 54.91131;
-        double smallestLatitudeOfGer = 47.271679;
-        double diffLatitude = highestLatitudeOfGer - smallestLatitudeOfGer;
-        double highestLongitudeGer = 15.043611;
-        double smallestLongitudeGer = 5.866944;
-        double diffLongitude = highestLongitudeGer - smallestLongitudeGer;
-
-        try {
-            String mapUrl = "src/main/resources/Germany_location_map.png";
-            BufferedImage mapImage = ImageIO.read(new File(mapUrl));
-            int width = mapImage.getWidth();
-            int height = mapImage.getHeight();
-
-            BufferedImage newImage = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
-            Graphics g = newImage.getGraphics();
-            g.drawImage(mapImage,0,0,null);
-            g.setColor(Color.RED);
-            g.setFont(new Font("TimesRoman", Font.PLAIN, 15));
-            for(MsgHeadquarter hq: hqs) {
-                double x = (hq.getLongitude() -smallestLongitudeGer) * (width/diffLongitude);
-                double y = height - (hq.getLatitude() - smallestLatitudeOfGer) * ( height / diffLatitude);
-                g.fillOval((int)(x-12.5),(int)(y-12.5),25, 25);
-                g.drawString((hq.getNumber()-1) +"",(int)x-40,(int)y-13);
-/*
-                double x2 = (hqs.get(node.getTo()).getLongitude() -smallestLongitudeGer) * (width/diffLongitude);
-                double y2 = height - (hqs.get(node.getTo()).getLatitude() - smallestLatitudeOfGer) * ( height / diffLatitude);
-                g.fillOval((int)(x2-12.5),(int)(y2-12.5),25, 25);
-                g.drawString(hqs.get(node.getTo()).getName(),(int)x2-40,(int)y2-13);
-
-                g.drawLine((int)x,(int)y,(int)x2, (int)y2);
-*/
-            }
-            g.setFont(new Font("TimesRoman", Font.PLAIN, 20));
-
-            ImageIO.write(newImage, "png", new File("src/main/resources/mapWithNumbers.png"));
         } catch (IOException ioException) {
             System.err.println(Arrays.toString(ioException.getStackTrace()));
         }
