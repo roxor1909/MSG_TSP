@@ -238,13 +238,14 @@ public class Msg_tsp {
         return  indexOfSmallestDistance;
     }
 
-    private double calculateDistanceOfRoute(double[][] distances, List<Integer> route) {
+    private long calculateDistanceOfRoute(double[][] distances, List<Integer> route) {
         double distance = 0.0;
         for(int index = 1; index < route.size(); index++) {
             System.out.println(distances[route.get(index-1)][route.get(index)]);
             distance += distances[route.get(index-1)][route.get(index)];
         }
-        return  distance;
+        distance = distance/1000;
+        return  Math.round(distance);
     }
 
     private String describeRoute(List<Integer> route) {
@@ -378,8 +379,8 @@ public class Msg_tsp {
                 lastY = y;
             }
             g.setFont(new Font("TimesRoman", Font.PLAIN, 20));
-            g.drawString(algorithmName, 50,50);
-            g.drawString("Total length: " + length + " meters", 50,100);
+            g.drawString(algorithmName, 20,50);
+            g.drawString("Total length: " + length + " kilometers", 20,80);
 
             ImageIO.write(newImage, "png", new File("src/main/resources/" + fileName));
         } catch (IOException ioException) {
