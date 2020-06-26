@@ -152,8 +152,7 @@ public class Msg_tsp {
         route.add(0);
         System.out.println(route);
         double length = this.calculateDistanceOfRoute(distances, route);
-        this.drawMap("greedy2.png", route, "greedy", length);
-        this.drawSingleRoutes("greedy.png", selectedList);
+        this.drawMap("greedy.png", route, "greedy", length);
 
     }
 
@@ -182,14 +181,7 @@ public class Msg_tsp {
     }
 
     boolean isCyclic(int numberVertix, List<Node> nodes) {
-         LinkedList<Integer>[] adj = new LinkedList[numberVertix];
-         for(int i =0; i<numberVertix; i++) {
-             adj[i] = new LinkedList<>();
-         }
-         for(Node node : nodes) {
-             adj[node.getTo()].add(node.getFrom());
-             adj[node.getFrom()].add(node.getTo());
-         }
+         List<Integer>[] adj = createGraph(nodes, numberVertix);
 
          boolean[] visited = new boolean[numberVertix];
          for (int i = 0; i < numberVertix; i++) {
@@ -202,7 +194,7 @@ public class Msg_tsp {
          return false;
     }
 
-    boolean isCyclicUtil(int v, boolean[] visited, int parent, LinkedList<Integer>[] adj) {
+    boolean isCyclicUtil(int v, boolean[] visited, int parent, List<Integer>[] adj) {
         visited[v] = true;
         int i;
 
@@ -381,47 +373,6 @@ public class Msg_tsp {
             g.setFont(new Font("TimesRoman", Font.PLAIN, 20));
             g.drawString(algorithmName, 20,50);
             g.drawString("Total length: " + length + " kilometers", 20,80);
-
-            ImageIO.write(newImage, "png", new File("src/main/resources/" + fileName));
-        } catch (IOException ioException) {
-            System.err.println(Arrays.toString(ioException.getStackTrace()));
-        }
-    }
-
-    private void drawSingleRoutes(String fileName, List<Node> nodes) {
-        double highestLatitudeOfGer = 54.91131;
-        double smallestLatitudeOfGer = 47.271679;
-        double diffLatitude = highestLatitudeOfGer - smallestLatitudeOfGer;
-        double highestLongitudeGer = 15.043611;
-        double smallestLongitudeGer = 5.866944;
-        double diffLongitude = highestLongitudeGer - smallestLongitudeGer;
-
-        try {
-            String mapUrl = "src/main/resources/Germany_location_map.png";
-            BufferedImage mapImage = ImageIO.read(new File(mapUrl));
-            int width = mapImage.getWidth();
-            int height = mapImage.getHeight();
-
-            BufferedImage newImage = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
-            Graphics g = newImage.getGraphics();
-            g.drawImage(mapImage,0,0,null);
-            g.setColor(Color.RED);
-            g.setFont(new Font("TimesRoman", Font.PLAIN, 15));
-            for(Node node : nodes) {
-                double x = (hqs.get(node.getFrom()).getLongitude() -smallestLongitudeGer) * (width/diffLongitude);
-                double y = height - (hqs.get(node.getFrom()).getLatitude() - smallestLatitudeOfGer) * ( height / diffLatitude);
-                g.fillOval((int)(x-12.5),(int)(y-12.5),25, 25);
-                g.drawString(hqs.get(node.getFrom()).getName(),(int)x-40,(int)y-13);
-
-                double x2 = (hqs.get(node.getTo()).getLongitude() -smallestLongitudeGer) * (width/diffLongitude);
-                double y2 = height - (hqs.get(node.getTo()).getLatitude() - smallestLatitudeOfGer) * ( height / diffLatitude);
-                g.fillOval((int)(x2-12.5),(int)(y2-12.5),25, 25);
-                g.drawString(hqs.get(node.getTo()).getName(),(int)x2-40,(int)y2-13);
-
-                g.drawLine((int)x,(int)y,(int)x2, (int)y2);
-
-            }
-            g.setFont(new Font("TimesRoman", Font.PLAIN, 20));
 
             ImageIO.write(newImage, "png", new File("src/main/resources/" + fileName));
         } catch (IOException ioException) {
