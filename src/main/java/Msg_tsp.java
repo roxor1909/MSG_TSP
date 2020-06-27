@@ -11,7 +11,6 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.*;
 import java.util.List;
-import java.util.stream.Collectors;
 
 import com.opencsv.exceptions.CsvException;
 import org.apache.http.HttpResponse;
@@ -47,11 +46,16 @@ public class Msg_tsp {
         double[][] distances = this.loadDistances();
         // Ismaning is the first row in the file
         int indexOfStartHq = 0;
-        nearestNeighbor(distances, indexOfStartHq);
-        greedy(distances);
+        double lengthNN = nearestNeighbor(distances, indexOfStartHq);
+        double lengthGreedy = greedy(distances);
+        if(lengthGreedy < lengthNN){
+            System.out.println("The greedy algorithm finds the shortest way through Germany. It is " + lengthGreedy + " kilometers long.");
+        } else {
+            System.out.println("The nearest neighbor algorithm finds the shortest way through Germany. It is " + lengthNN + " kilometers long.");
+        }
     }
 
-    void nearestNeighbor(double[][] distances, int startIndex) {
+    double nearestNeighbor(double[][] distances, int startIndex) {
         // Init the route
         boolean[] cityVisited = new boolean[distances.length];
         List<Integer> route = new LinkedList<>();
@@ -69,9 +73,10 @@ public class Msg_tsp {
         System.out.println(this.describeRoute(route));
         double length = this.calculateDistanceOfRoute(distances, route);
         this.drawMap("NearestNeighbour.png", route, "Nearest neighbour", length);
+        return length;
     }
 
-    void greedy(double[][] distances) {
+    double greedy(double[][] distances) {
         // Sort the edges in increasing order of the weights
         boolean[][] alreadySelectedEdge = new boolean[distances.length][distances.length];
         // mark the diagonal as used because it is the same node
@@ -79,6 +84,7 @@ public class Msg_tsp {
             alreadySelectedEdge[i][i] = true;
         }
         // init list
+        // Use only the upper triangular matrix to avoid duplicated routes
         PriorityQueue<Node> nodelist = new PriorityQueue<>();
         for(int i = 0; i <alreadySelectedEdge.length; i++) {
             for(int j = i; j< alreadySelectedEdge.length; j++) {
@@ -121,26 +127,21 @@ public class Msg_tsp {
             alreadySelectedEdge[nextNode.getTo()][nextNode.getFrom()] = true;
 
         }
-        System.out.println(selectedList);
         List<Integer>[] adj = this.createGraph(selectedList, distances.length);
         List<Integer> route = new LinkedList<>();
         // Start is in Ismaringen
         route.add(0);
         boolean[] visited = new boolean[distances.length];
         visited[0] = true;
-        int index = 0;
-        for(List<Integer> tmp: adj) {
-            System.out.print((hqs.get(index).getNumber()-1) +  " " + hqs.get(index++).getName());
-            System.out.println(tmp);
-        }
 
+        // Create the graph from the edges
+        // Start in Ismaringen
         int next = adj[0].get(0);
         int count = 1;
         while(count < distances.length) {
             route.add(next);
             visited[next] = true;
             int nextZero = adj[next].get(0);
-            System.out.println("Next zero:" + nextZero);
             if(!visited[nextZero]){
                 next = adj[next].get(0);
             }else {
@@ -151,9 +152,11 @@ public class Msg_tsp {
         // Go back home
         route.add(0);
         System.out.println(route);
+        System.out.println(this.describeRoute(route));
         double length = this.calculateDistanceOfRoute(distances, route);
+        System.out.println("Greedy with total length of " + Math.round(length/1000) + " kilometers.");
         this.drawMap("greedy.png", route, "greedy", length);
-
+        return length;
     }
 
     // Copies a two dimensional array
@@ -233,7 +236,6 @@ public class Msg_tsp {
     private long calculateDistanceOfRoute(double[][] distances, List<Integer> route) {
         double distance = 0.0;
         for(int index = 1; index < route.size(); index++) {
-            System.out.println(distances[route.get(index-1)][route.get(index)]);
             distance += distances[route.get(index-1)][route.get(index)];
         }
         distance = distance/1000;
